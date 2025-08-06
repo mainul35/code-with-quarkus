@@ -13,7 +13,7 @@ public class GreetingResource {
     @Path("hello")
     @Produces(MediaType.TEXT_PLAIN)
     public String hello() {
-        return "This is my test endpoint";
+        return "This is a test endpoint";
     }
 
     @POST
