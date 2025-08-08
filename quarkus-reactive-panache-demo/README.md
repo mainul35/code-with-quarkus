@@ -1,87 +1,266 @@
-# quarkus-reactive-panache-demo
 
-This project uses Quarkus, the Supersonic Subatomic Java Framework.
+# Quarkus Reactive Panache Demo
 
-If you want to learn more about Quarkus, please visit its website: <https://quarkus.io/>.
+A minimal Quarkus application demonstrating **reactive REST endpoints** with **Hibernate Reactive Panache** and a **MySQL** backend. This project is designed for non-blocking, scalable CRUD operations on a simple `Fruit` entity.
 
-## Running the application in dev mode
+---
 
-You can run your application in dev mode that enables live coding using:
+## Table of Contents
 
-```shell script
-./mvnw quarkus:dev
+- [Project Structure](#project-structure)
+- [Dependency and Code Explanations](#dependency-and-code-explanations)
+  - [pom.xml](#pomxml)
+  - [mysql.docker-compose.yml & sql_scripts/init.sql](#mysqldocker-composeyml--sql_scriptsinitsql)
+  - [src/main/resources/application.properties](#srcmainresourcesapplicationproperties)
+  - [src/main/java/dev/mainul35/fruits/Fruit.java](#srcmainjavadevmainul35fruitsfruitjava)
+  - [src/main/java/dev/mainul35/fruits/FruitResource.java](#srcmainjavadevmainul35fruitsfruitresourcejava)
+  - [Testing Files](#testing-files)
+- [How to Run](#how-to-run)
+- [Troubleshooting](#troubleshooting)
+
+---
+
+## Project Structure
+```
+├── README.md
+├── mysql.docker-compose.yml
+├── pom.xml
+├── sql_scripts/
+│ └── init.sql
+├── src/
+│ ├── main/
+│ │ ├── java/dev/mainul35/fruits/
+│ │ │ ├── Fruit.java
+│ │ │ └── FruitResource.java
+│ │ └── resources/application.properties
+│ └── test/java/dev/mainul35/
+│ ├── GreetingResourceIT.java
+│ └── GreetingResourceTest.java
+```
+---
+
+## Dependency and Code Explanations
+
+### `pom.xml`
+
+**Purpose:**  
+Defines all dependencies, plugins, and build configuration for the project.
+
+#### Key Dependencies
+
+- **Quarkus BOM**:  
+  Ensures all Quarkus dependencies are compatible (`quarkus-bom`).
+
+- **RESTEasy Reactive**:  
+  - `quarkus-resteasy-reactive`: Enables reactive REST endpoints.
+  - `quarkus-resteasy-reactive-jackson`: JSON (de)serialization for REST.
+  - `quarkus-vertx-http`: Underlying reactive HTTP server.
+
+- **Hibernate Reactive Panache**:  
+  - `quarkus-hibernate-reactive-panache`: Non-blocking ORM for database access.
+
+- **Reactive MySQL Client**:  
+  - `quarkus-reactive-mysql-client`: Non-blocking MySQL driver.
+
+- **Scheduler**:  
+  - `quarkus-scheduler`: (Optional) For scheduled jobs, not directly used in this demo but included for future extensibility.
+
+- **Testing**:  
+  - `quarkus-junit5`, `rest-assured`: For writing and running tests.
+
+- **Build Plugins**:  
+  - `quarkus-maven-plugin`: For building and running Quarkus apps.
+  - `maven-compiler-plugin`, `maven-surefire-plugin`, `maven-failsafe-plugin`: Standard Maven build/test plugins.
+
+#### Why these dependencies?
+
+- **Reactive stack**: All database and HTTP operations are non-blocking, enabling high scalability.
+- **Panache**: Simplifies entity and repository code.
+- **MySQL**: Chosen as the demo database.
+- **Testing**: Ensures endpoints work as expected.
+
+---
+
+### `mysql.docker-compose.yml` & `sql_scripts/init.sql`
+
+**Purpose:**  
+Provides a reproducible, isolated MySQL environment for local development.
+
+#### Key Points
+
+- **MySQL Service**:  
+  - Exposes port `3308` (host) → `3306` (container) to avoid conflicts.
+  - Uses a named volume for persistent data.
+  - Mounts `sql_scripts/init.sql` to initialize the database and user.
+
+- **init.sql**:  
+  - Creates `fruits_db` database.
+  - Creates user `fruits_db_user` with password `fruits_db_password`.
+  - Grants all privileges on `fruits_db` to this user.
+
+**Why?**  
+- Ensures the database and user are always present and ready for the Quarkus app.
+- Avoids manual DB setup.
+
+---
+
+### `src/main/resources/application.properties`
+
+**Purpose:**  
+Configures Quarkus to connect to the MySQL database using the reactive driver.
+
+#### Key Properties
+
+- `quarkus.http.port=8050`:  
+  Runs the app on port 8050 (not default 8080).
+
+- `quarkus.datasource.devservices.enabled=false`:  
+  Disables Quarkus DevServices (since we use our own Docker DB).
+
+- `quarkus.datasource.db-kind=mysql`:  
+  Specifies MySQL as the DB type.
+
+- `quarkus.datasource.username` / `password`:  
+  Matches the user created in `init.sql`.
+
+- `quarkus.datasource.reactive.url`:  
+  Connects to MySQL on port 3308, database `fruits_db`.
+
+- `quarkus.hibernate-orm.database.generation=update`:  
+  Automatically updates the schema to match entities.
+
+- `quarkus.hibernate-orm.log.sql=true`:  
+  Logs SQL statements for debugging.
+
+**Why?**  
+- Ensures the app connects to the correct DB, with the right user, and uses the reactive stack.
+
+---
+
+### `src/main/java/dev/mainul35/fruits/Fruit.java`
+
+**Purpose:**  
+Defines the `Fruit` entity, mapped to a database table.
+
+#### Key Points
+
+- `@Entity`:  
+  Marks this as a JPA entity.
+
+- `@Cacheable`:  
+  Enables second-level caching (optional, for performance).
+
+- `extends PanacheEntity`:  
+  Inherits `id` field and CRUD helpers from Panache.
+
+- `@Column(length = 40, unique = true)`:  
+  - `name` is unique and max 40 chars.
+
+**Why?**  
+- Minimal entity for demo purposes.
+- Panache reduces boilerplate (no getters/setters, no repository needed).
+
+---
+
+### `src/main/java/dev/mainul35/fruits/FruitResource.java`
+
+**Purpose:**  
+Exposes REST endpoints for CRUD operations on `Fruit`.
+
+#### Key Endpoints
+
+- `GET /fruits`:  
+  List all fruits, sorted by name.
+
+- `GET /fruits/{id}`:  
+  Get a single fruit by ID.
+
+- `POST /fruits`:  
+  Create a new fruit.  
+  - Validates that `id` is not set (should be auto-generated).
+
+- `PUT /fruits/{id}`:  
+  Update a fruit's name.
+
+- `DELETE /fruits/{id}`:  
+  Delete a fruit by ID.
+
+#### Error Handling
+
+- **Custom `ErrorMapper`**:  
+  - Catches all exceptions and returns a JSON error response.
+  - Handles `WebApplicationException` for validation errors.
+  - Handles `CompositeException` from Mutiny (e.g., DB constraint violations).
+
+**Why?**  
+- Demonstrates reactive REST endpoints with non-blocking DB access.
+- Shows how to handle errors in a user-friendly way.
+
+---
+
+### Testing Files
+
+- `GreetingResourceTest.java`, `GreetingResourceIT.java`:  
+  - Standard Quarkus test stubs.
+  - You can add tests for `/fruits` endpoints here.
+
+---
+
+## How to Run
+
+### 1. Start MySQL with Docker Compose
+
+```bash
+docker compose -f mysql.docker-compose.yml up -d
+```
+* This will start MySQL on port 3308 and initialize the database and user.
+
+### 2. Build and Run the Quarkus Application
+```
+./mvnw clean compile quarkus:dev
 ```
 
-> **_NOTE:_**  Quarkus now ships with a Dev UI, which is available in dev mode only at <http://localhost:8080/q/dev/>.
-
-## Packaging and running the application
-
-The application can be packaged using:
-
-```shell script
-./mvnw package
+or (if you have Maven installed)
+```
+mvn clean compile quarkus:dev
 ```
 
-It produces the `quarkus-run.jar` file in the `target/quarkus-app/` directory.
-Be aware that it’s not an _über-jar_ as the dependencies are copied into the `target/quarkus-app/lib/` directory.
+The app will start on http://localhost:8050.
 
-The application is now runnable using `java -jar target/quarkus-app/quarkus-run.jar`.
+### 3. Test the Endpoints
 
-If you want to build an _über-jar_, execute the following command:
+#### List Fruits:
+```GET http://localhost:8050/fruits```
 
-```shell script
-./mvnw package -Dquarkus.package.jar.type=uber-jar
+#### Add Fruit:
+```POST http://localhost:8050/fruits```
+Body:
+```
+{ "name": "Banana" }
 ```
 
-The application, packaged as an _über-jar_, is now runnable using `java -jar target/*-runner.jar`.
-
-## Creating a native executable
-
-You can create a native executable using:
-
-```shell script
-./mvnw package -Dnative
+#### Update Fruit:
+```PUT http://localhost:8050/fruits/1```
+Body:
+```
+{ "name": "Apple" }
+```
+#### Delete Fruit:
+```
+DELETE http://localhost:8050/fruits/1
 ```
 
-Or, if you don't have GraalVM installed, you can run the native executable build in a container using:
+## Troubleshooting
+### * Port Conflicts:
+Port Conflicts:
 
-```shell script
-./mvnw package -Dnative -Dquarkus.native.container-build=true
-```
+If port 3308 or 8050 is in use, change them in mysql.docker-compose.yml and application.properties.
+### * Database Connection Issues:
 
-You can then execute your native executable with: `./target/quarkus-reactive-panache-demo-1.0.0-SNAPSHOT-runner`
-
-If you want to learn more about building native executables, please consult <https://quarkus.io/guides/maven-tooling>.
-
-## Related Guides
-
-- Mutiny ([guide](https://quarkus.io/guides/mutiny-primer)): Write reactive applications with the modern Reactive Programming library Mutiny
-- REST ([guide](https://quarkus.io/guides/rest)): A Jakarta REST implementation utilizing build time processing and Vert.x. This extension is not compatible with the quarkus-resteasy extension, or any of the extensions that depend on it.
-- Reactive MySQL client ([guide](https://quarkus.io/guides/reactive-sql-clients)): Connect to the MySQL database using the reactive pattern
-- REST JSON-B ([guide](https://quarkus.io/guides/rest#json-serialisation)): JSON-B serialization support for Quarkus REST. This extension is not compatible with the quarkus-resteasy extension, or any of the extensions that depend on it.
-- REST Client ([guide](https://quarkus.io/guides/rest-client)): Call REST services
-- Hibernate ORM with Panache ([guide](https://quarkus.io/guides/hibernate-orm-panache)): Simplify your persistence code for Hibernate ORM via the active record or the repository pattern
-- JDBC Driver - PostgreSQL ([guide](https://quarkus.io/guides/datasource)): Connect to the PostgreSQL database via JDBC
-
-## Provided Code
-
-### Hibernate ORM
-
-Create your first JPA entity
-
-[Related guide section...](https://quarkus.io/guides/hibernate-orm)
-
-[Related Hibernate with Panache section...](https://quarkus.io/guides/hibernate-orm-panache)
+Ensure MySQL is running and accessible on port 3308.
+Check logs for authentication errors.
+### * Schema Not Updating:
+* The property quarkus.hibernate-orm.database.generation=update should auto-update the schema.
+* For manual control, use validate or none.
 
 
-### REST Client
-
-Invoke different services through REST with JSON
-
-[Related guide section...](https://quarkus.io/guides/rest-client)
-
-### REST
-
-Easily start your REST Web Services
-
-[Related guide section...](https://quarkus.io/guides/getting-started-reactive#reactive-jax-rs-resources)
