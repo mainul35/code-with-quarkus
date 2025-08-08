@@ -1,4 +1,4 @@
-package dev.mainul35.player;
+package dev.mainul35.fruits;
 
 import static jakarta.ws.rs.core.Response.Status.CREATED;
 import static jakarta.ws.rs.core.Response.Status.NOT_FOUND;

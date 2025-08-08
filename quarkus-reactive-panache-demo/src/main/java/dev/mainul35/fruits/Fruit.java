@@ -1,4 +1,4 @@
-package dev.mainul35.player;
+package dev.mainul35.fruits;
 
 import jakarta.persistence.Cacheable;
 import jakarta.persistence.Column;
