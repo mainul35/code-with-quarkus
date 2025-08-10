@@ -1,0 +1,22 @@
+version: "3.8"
+
+services:
+  todo_db_service:
+    image: mysql:latest  # Specify a tag!
+    container_name: todo_db_container
+    volumes:
+      - todo_db_volume:/var/lib/mysql
+      - ./sql_scripts:/docker-entrypoint-initdb.d  # Mount the initialization script
+    ports:
+      - '3306:3306'
+    environment:
+      - 'MYSQL_ROOT_PASSWORD=@root#' # Still needed for initial setup
+    networks:
+      - todo_network
+
+networks:
+  todo_network:
+    driver: bridge
+
+volumes:
+  todo_db_volume:
