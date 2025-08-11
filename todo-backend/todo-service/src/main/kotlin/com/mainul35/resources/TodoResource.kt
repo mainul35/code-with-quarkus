@@ -28,7 +28,7 @@ class TodoResource @Inject constructor(
 
     @GET
     fun getTodos(): Uni<Response> {
-        return Uni.createFrom().item { Response.ok().entity(todoService::getAllTodos).build() }
+        return todoService.getAllTodos().onItem().transform { todos -> Response.ok().entity(todos).build() }
     }
 
     @POST

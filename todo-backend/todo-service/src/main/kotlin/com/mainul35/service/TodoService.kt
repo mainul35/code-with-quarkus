@@ -5,6 +5,7 @@ import com.mainul35.entity.TodoEntity
 import com.mainul35.entity.TodoStatus
 import com.mainul35.repository.TodoRepository
 import com.mainul35.resources.data.response.FailedSave
+import com.mainul35.resources.data.response.Todo
 import io.smallrye.mutiny.Multi
 import io.smallrye.mutiny.Uni
 import jakarta.enterprise.context.ApplicationScoped
@@ -125,9 +126,39 @@ class TodoService @Inject constructor(
             }
     }
 
-    fun getAllTodos(): Uni<List<TodoEntity>> = todoRepository.findAll().list()
+    fun getAllTodos(): Uni<List<Todo>> {
+//        return todoRepository.findAll().list().onItem().transform(todoEntities -> {
+//            List<Todo> todos = new ArrayList<>();
+//            todoEntities.forEach(todoEntity -> {
+//            Todo todo = new Todo(
+//                todoEntity.getCreatedDateTime(),
+//                todoEntity.getUpdatedDateTime(),
+//                todoEntity.getStatus(),
+//                todoEntity.getDescription(),
+//                todoEntity.getTitle(),
+//                todoEntity.id
+//            );
+//            todos.add(todo);
+//        });
+//            return todos;
+//        });
+        return todoRepository.findAll().list<TodoEntity>().onItem().transform { todoEntities ->
+            val todos: MutableList<Todo> = mutableListOf()
+            todoEntities.forEach { todoEntity ->
+                val todo: Todo = Todo (
+                    createdDateTime = todoEntity.createdDateTime,
+                    updatedDateTime = todoEntity.updatedDateTime,
+                    status = todoEntity.status,
+                    title = todoEntity.title,
+                    description = todoEntity.description,
+                    id = todoEntity.id
+                )
+                todos.add(todo)
+            }
+            return@transform todos
+        }
+    }
 
     fun addTodo(todo: TodoEntity): Uni<Response> = todoRepository.save(todo)
 
 }
-
